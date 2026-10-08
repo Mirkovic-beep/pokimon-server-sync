@@ -41,6 +41,18 @@ function Publish-PokimonSnapshot([string]$Directory,[string]$Repository,[string]
         Write-SyncJson $specPath ([pscustomobject]@{tag_name=$manifest.id;target_commitish=$repo.default_branch;name=('Partida '+$manifest.createdUtc);body=$notes;draft=$true;prerelease=$false})
         try {$release=Invoke-PokimonApi $GhPath ('repos/'+$Repository+'/releases/tags/'+$manifest.id)}
         catch {if($_.Exception.Message -notmatch 'HTTP 404') {throw};$release=$null}
+        # GitHub's tag endpoint can return 404 for a draft whose tag is not created yet.
+        # Find an earlier successful create before retrying, including after a lost API response.
+        if(-not $release) {
+            $page=1
+            do {
+                $pageReleases=@(Invoke-PokimonApi $GhPath ('repos/'+$Repository+'/releases?per_page=100&page='+$page))
+                $matching=@($pageReleases | Where-Object {$_.tag_name -eq $manifest.id})
+                if($matching.Count -gt 1) {throw 'Hay varios borradores para esta copia. No se crea otra publicacion.'}
+                if($matching.Count -eq 1) {$release=$matching[0];break}
+                $page++
+            } while($pageReleases.Count -eq 100)
+        }
         if(-not $release) {$release=Invoke-PokimonApi $GhPath ('repos/'+$Repository+'/releases') 'POST' $specPath}
         $status.releaseId=$release.id
         Write-SyncJson $statusPath $status

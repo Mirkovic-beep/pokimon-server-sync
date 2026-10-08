@@ -61,7 +61,7 @@ function Arg-After([string]$Flag) {$index=[Array]::IndexOf($CommandArguments,$Fl
 if($CommandArguments[0] -eq 'api') {
     $endpoint=$CommandArguments[3];$method=Arg-After '--method'
     if($endpoint -eq 'repos/test-owner/pokimon') {Write-Output '{"full_name":"test-owner/pokimon","private":false,"default_branch":"main","permissions":{"push":true}}';return}
-    if($endpoint -match '/releases/tags/' -and -not $state.release) {$global:LASTEXITCODE=1;Write-Output 'Not Found (HTTP 404)';return}
+    if($endpoint -match '/releases/tags/' -and (-not $state.release -or $state.release.draft)) {$global:LASTEXITCODE=1;Write-Output 'Not Found (HTTP 404)';return}
     if($endpoint -match '/releases$' -and $method -eq 'POST') {
         $spec=Read-SyncJson (Arg-After '--input')
         $state.release=[pscustomobject]@{id=1;tag_name=$spec.tag_name;draft=$true;assets=@();html_url=('https://github.com/test-owner/pokimon/releases/tag/'+$spec.tag_name)}
@@ -89,9 +89,11 @@ Write-SyncJson (Join-Path $TestDirectory 'mock-state.json') ([pscustomobject]@{r
 Expect-Failure {Publish-PokimonSnapshot $backup 'test-owner/pokimon' $mockPath} 'Surfaces an interrupted upload and keeps the local copy'
 $state=Read-SyncJson (Join-Path $TestDirectory 'mock-state.json')
 Assert-Test ($state.release.draft -eq $true -and $state.publishCalls -eq 0) 'Never publishes an incomplete upload'
+$lostResponseStatus=Read-SyncJson (Join-Path $backup 'publication.json');$lostResponseStatus.releaseId=$null;Write-SyncJson (Join-Path $backup 'publication.json') $lostResponseStatus
 $published=Publish-PokimonSnapshot $backup 'test-owner/pokimon' $mockPath
 $state=Read-SyncJson (Join-Path $TestDirectory 'mock-state.json')
 Assert-Test ($published.published -and $state.publishCalls -eq 1) 'Publishes only after every remote asset hash and size match'
+Assert-Test ($state.release.id -eq $published.releaseId) 'Recovers an existing draft even when the tag endpoint returns 404 and the local release id was lost'
 Assert-Test (@($state.uploadAttempts | Where-Object {$_ -eq $manifest.parts[0].name}).Count -eq 1) 'Resumes without uploading the already verified first part again'
 Receive-PokimonSnapshot 'test-owner/pokimon' $mockPath (Join-Path $TestDirectory 'downloaded') (Join-Path $TestDirectory 'download-restored') | Out-Null
 Assert-Test ((Get-SyncHash (Join-Path $TestDirectory 'download-restored\world\region\r.0.0.mca')) -eq (Get-SyncHash (Join-Path $fixture 'world\region\r.0.0.mca'))) 'Downloads and restores a multipart release through the CLI transport'

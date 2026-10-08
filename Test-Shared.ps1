@@ -35,6 +35,7 @@ if($CommandArguments[0] -eq 'api') {
         $release=[pscustomobject]@{id=$id;tag_name=$spec.tag_name;draft=$true;assets=@();html_url=('https://github.com/test-owner/pokimon/releases/tag/'+$spec.tag_name)}
         $state.releases=@($state.releases)+$release;Save-Mock;$release | ConvertTo-Json -Depth 8;return
     }
+    if($endpoint -match '/releases\?per_page=') {ConvertTo-Json -InputObject @($state.releases) -Depth 8;return}
     $release=$null
     if($endpoint -match '/releases/tags/(.+)$'){$tag=$Matches[1];$release=$state.releases | Where-Object {$_.tag_name -eq $tag}}
     elseif($endpoint -match '/releases/(\d+)$'){$id=[int]$Matches[1];$release=$state.releases | Where-Object {$_.id -eq $id}}
