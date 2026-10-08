@@ -5,7 +5,9 @@ $script:SnapshotRootFiles=@('ops.json','whitelist.json','banned-players.json')
 
 function Write-SyncJson([string]$Path,$Value) {
     $encoding=New-Object Text.UTF8Encoding($false)
-    [IO.File]::WriteAllText($Path,($Value | ConvertTo-Json -Depth 12),$encoding)
+    $temporary=$Path+'.'+[Guid]::NewGuid().ToString('N')+'.tmp'
+    [IO.File]::WriteAllText($temporary,($Value | ConvertTo-Json -Depth 16),$encoding)
+    if(Test-Path -LiteralPath $Path) {[IO.File]::Replace($temporary,$Path,($Path+'.previous'))} else {[IO.File]::Move($temporary,$Path)}
 }
 function Read-SyncJson([string]$Path) {Get-Content -LiteralPath $Path -Raw -Encoding UTF8 | ConvertFrom-Json}
 function Get-SyncHash([string]$Path) {(Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()}
@@ -49,7 +51,7 @@ function Get-SnapshotFiles([string]$ServerDirectory) {
     foreach($name in $script:SnapshotRootFiles) {
         $full=Join-Path $base $name
         if(Test-Path -LiteralPath $full) {
-            $item=Get-Item -LiteralPath $full
+            $item=Get-Item -LiteralPath $full -Force
             if($item.Attributes -band [IO.FileAttributes]::ReparsePoint) {throw 'No se siguen enlaces de archivos.'}
             [pscustomobject]@{Path=$name;FullName=$full;Length=$item.Length;LastWriteTicks=$item.LastWriteTimeUtc.Ticks}
         }
@@ -73,7 +75,7 @@ function Copy-StreamWithHash([IO.Stream]$InputStream,[IO.Stream]$OutputStream) {
     } finally {$crypto.Dispose();$sha.Dispose()}
 }
 function New-PokimonSnapshot {
-    param([Parameter(Mandatory=$true)][string]$ServerDirectory,[Parameter(Mandatory=$true)][string]$BackupDirectory,[ValidateRange(1024,1073741824)][long]$PartBytes=1GB)
+    param([Parameter(Mandatory=$true)][string]$ServerDirectory,[Parameter(Mandatory=$true)][string]$BackupDirectory,[ValidateRange(1024,1073741824)][long]$PartBytes=1GB,[ValidateSet('single-host-backup','shared-host')][string]$Mode='single-host-backup')
     $base=[IO.Path]::GetFullPath($ServerDirectory).TrimEnd('\')
     $backup=[IO.Path]::GetFullPath($BackupDirectory).TrimEnd('\')
     if($backup -eq $base -or $backup.StartsWith($base+'\',[StringComparison]::OrdinalIgnoreCase)) {throw 'Las copias deben guardarse fuera de la carpeta del servidor.'}
@@ -92,13 +94,15 @@ function New-PokimonSnapshot {
         $archiveStream=[IO.File]::Open($zipPath,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
         $archive=New-Object IO.Compression.ZipArchive($archiveStream,[IO.Compression.ZipArchiveMode]::Create,$false)
         $manifestFiles=New-Object 'Collections.Generic.List[object]'
+        $nextProgress=0
         try {
             foreach($file in $files) {
+                if($manifestFiles.Count -ge $nextProgress) {Write-Host ('Preparando copia: '+$manifestFiles.Count+' / '+$files.Count+' archivos');$nextProgress+=2000}
                 $entry=$archive.CreateEntry($file.Path,[IO.Compression.CompressionLevel]::Fastest)
                 $output=$entry.Open()
                 $sourceStream=[IO.File]::Open($file.FullName,[IO.FileMode]::Open,[IO.FileAccess]::Read,[IO.FileShare]::Read)
                 try {$digest=Copy-StreamWithHash $sourceStream $output} finally {$sourceStream.Dispose();$output.Dispose()}
-                $after=Get-Item -LiteralPath $file.FullName
+                $after=Get-Item -LiteralPath $file.FullName -Force
                 if($after.Length -ne $file.Length -or $after.LastWriteTimeUtc.Ticks -ne $file.LastWriteTicks) {throw ('Cambio un archivo mientras se copiaba: '+$file.Path)}
                 $manifestFiles.Add([pscustomobject]@{path=$file.Path;bytes=[long]$file.Length;sha256=$digest})
             }
@@ -132,8 +136,9 @@ function New-PokimonSnapshot {
     } finally {$sourceStream.Dispose()}
     if($parts.Count -ge 999) {throw 'La copia supera el numero admitido de adjuntos por Release.'}
     $id='snapshot-'+[DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss')+'-'+[Guid]::NewGuid().ToString('N').Substring(0,8)
-    $manifest=[pscustomobject]@{format='pokimon-snapshot';schema=1;id=$id;createdUtc=[DateTime]::UtcNow.ToString('o');mode='single-host-backup';archiveBytes=(Get-Item -LiteralPath $zipPath).Length;archiveSha256=(Get-SyncHash $zipPath);totalFileBytes=[long]$bytes;files=@($manifestFiles.ToArray());parts=@($parts.ToArray());mods=$mods;includesClientMaps=$false}
+    $manifest=[pscustomobject]@{format='pokimon-snapshot';schema=1;id=$id;createdUtc=[DateTime]::UtcNow.ToString('o');mode=$Mode;archiveBytes=(Get-Item -LiteralPath $zipPath).Length;archiveSha256=(Get-SyncHash $zipPath);totalFileBytes=[long]$bytes;files=@($manifestFiles.ToArray());parts=@($parts.ToArray());mods=$mods;includesClientMaps=$false}
     Write-SyncJson (Join-Path $backup 'manifest.json') $manifest
+    [IO.File]::Delete($zipPath)
     return $manifest
 }
 function Read-PokimonManifest([string]$Directory) {
@@ -197,6 +202,8 @@ function Expand-PokimonSnapshot([string]$Directory,[string]$Destination) {
             if($digest -ne $expected[$entry.FullName].sha256) {throw ('No coincide el contenido restaurado: '+$entry.FullName)}
         }
     } finally {$archive.Dispose()}
+    # The verified parts are retained; the temporary joined ZIP is redundant.
+    [IO.File]::Delete($zipPath)
     Write-SyncJson (Join-Path $Destination 'restoration-verified.json') ([pscustomobject]@{snapshot=$manifest.id;verifiedUtc=[DateTime]::UtcNow.ToString('o');files=$expected.Count;allFileHashesVerified=$true})
     return $manifest
 }

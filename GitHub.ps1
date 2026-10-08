@@ -54,10 +54,17 @@ function Publish-PokimonSnapshot([string]$Directory,[string]$Repository,[string]
         $existing=@($release.assets | Where-Object {$_.name -eq $asset.name})
         if($existing.Count -gt 1) {throw 'Hay adjuntos duplicados en la version remota.'}
         if($existing.Count -eq 1) {
+            if($release.draft -and $existing[0].state -eq 'starter' -and -not $existing[0].digest) {
+                Invoke-PokimonApi $GhPath ('repos/'+$Repository+'/releases/assets/'+$existing[0].id) 'DELETE' | Out-Null
+                $existing=@()
+            }
+        }
+        if($existing.Count -eq 1) {
             if($existing[0].size -ne $asset.bytes -or $existing[0].digest -ne ('sha256:'+$asset.sha256) -or $existing[0].state -ne 'uploaded') {throw ('Adjunto remoto incompleto o distinto: '+$asset.name+'. La version sigue sin completarse.')}
             continue
         }
         if(-not $release.draft) {throw 'Faltan adjuntos en una version ya publicada; no se modifica.'}
+        Write-Host ('Subiendo '+$asset.name+' ('+[Math]::Round($asset.bytes/1MB)+' MB)...')
         Invoke-PokimonGh $GhPath @('release','upload',$manifest.id,(Join-Path $Directory $asset.name),'--repo',('https://github.com/'+$Repository)) | Out-Null
     }
     $release=Invoke-PokimonApi $GhPath ('repos/'+$Repository+'/releases/'+$status.releaseId)
@@ -76,24 +83,34 @@ function Publish-PokimonSnapshot([string]$Directory,[string]$Repository,[string]
     Write-SyncJson $statusPath $status
     return $status
 }
-function Receive-PokimonSnapshot([string]$Repository,[string]$GhPath,[string]$DownloadDirectory,[string]$Destination) {
+function Receive-PokimonSnapshot([string]$Repository,[string]$GhPath,[string]$DownloadDirectory,[string]$Destination,[string]$Tag,[string]$ManifestSha256) {
     Assert-GitHubRepository $Repository
-    if(Test-Path -LiteralPath $DownloadDirectory) {throw 'La carpeta de descarga debe ser nueva.'}
     if(Test-Path -LiteralPath $Destination) {throw 'La carpeta de restauracion debe ser nueva.'}
-    $release=Invoke-PokimonApi $GhPath ('repos/'+$Repository+'/releases/latest')
+    $endpoint='repos/'+$Repository+'/releases/latest'
+    if($Tag) {
+        if($Tag -notmatch '^snapshot-\d{8}-\d{6}-[a-f0-9]{8}$') {throw 'Version de partida no valida.'}
+        $endpoint='repos/'+$Repository+'/releases/tags/'+$Tag
+    }
+    $release=Invoke-PokimonApi $GhPath $endpoint
     if($release.draft -or $release.tag_name -notmatch '^snapshot-\d{8}-\d{6}-[a-f0-9]{8}$') {throw 'La ultima version no es una copia completa de Pokimon.'}
     $manifestAsset=@($release.assets | Where-Object {$_.name -eq 'manifest.json'})
     if($manifestAsset.Count -ne 1) {throw 'No se encuentra el manifiesto remoto.'}
     [IO.Directory]::CreateDirectory($DownloadDirectory) | Out-Null
     $manifestFile=Join-Path $DownloadDirectory 'manifest.json'
-    Invoke-PokimonGh $GhPath @('release','download',$release.tag_name,'--pattern','manifest.json','--output',$manifestFile,'--repo',('https://github.com/'+$Repository)) | Out-Null
+    if($ManifestSha256 -and $manifestAsset[0].digest -ne ('sha256:'+$ManifestSha256)) {throw 'El manifiesto no coincide con la partida anunciada en el estado compartido.'}
+    Invoke-PokimonGh $GhPath @('release','download',$release.tag_name,'--pattern','manifest.json','--output',$manifestFile,'--clobber','--repo',('https://github.com/'+$Repository)) | Out-Null
     if($manifestAsset[0].digest -ne ('sha256:'+(Get-SyncHash $manifestFile))) {throw 'No coincide el manifiesto descargado.'}
     $manifest=Read-PokimonManifest $DownloadDirectory
     if($manifest.id -ne $release.tag_name) {throw 'El manifiesto pertenece a otra version.'}
+    $drive=New-Object IO.DriveInfo([IO.Path]::GetPathRoot([IO.Path]::GetFullPath($Destination)))
+    if($drive.AvailableFreeSpace -lt ($manifest.totalFileBytes+$manifest.archiveBytes*2+512MB)) {throw 'No hay espacio libre suficiente para descargar y verificar la partida. Las copias locales anteriores se conservan.'}
     foreach($part in $manifest.parts) {
         $asset=@($release.assets | Where-Object {$_.name -eq $part.name})
         if($asset.Count -ne 1 -or $asset[0].size -ne $part.bytes -or $asset[0].digest -ne ('sha256:'+$part.sha256)) {throw 'La copia remota esta incompleta.'}
-        Invoke-PokimonGh $GhPath @('release','download',$release.tag_name,'--pattern',$part.name,'--output',(Join-Path $DownloadDirectory $part.name),'--repo',('https://github.com/'+$Repository)) | Out-Null
+        $partPath=Join-Path $DownloadDirectory $part.name
+        if((Test-Path -LiteralPath $partPath) -and (Get-Item -LiteralPath $partPath).Length -eq $part.bytes -and (Get-SyncHash $partPath) -eq $part.sha256) {continue}
+        Write-Host ('Descargando '+$part.name+' ('+[Math]::Round($part.bytes/1MB)+' MB)...')
+        Invoke-PokimonGh $GhPath @('release','download',$release.tag_name,'--pattern',$part.name,'--output',$partPath,'--clobber','--repo',('https://github.com/'+$Repository)) | Out-Null
     }
     return (Expand-PokimonSnapshot $DownloadDirectory $Destination)
 }

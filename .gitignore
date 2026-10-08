@@ -1,4 +1,6 @@
 *.local.json
+*.local.json.previous
+*.tmp
 .state/
 backups/
 downloads/

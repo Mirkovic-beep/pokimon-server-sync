@@ -1,0 +1,42 @@
+POKIMON PARA LOS DOS - WINDOWS
+
+PRIMERA VEZ
+1. Conserva tu instancia COBBLEVERSE de Modrinth, la misma con la que ya jugabas.
+2. Cierra Minecraft, extrae todo el ZIP y abre Instalar Pokimon.cmd.
+3. Conecta tu propia cuenta GitHub. Debes aceptar la invitacion de colaborador.
+4. Acepta la EULA de Minecraft y espera a que descargue y compruebe la partida.
+
+PARA JUGAR
+1. Abre Iniciar servidor Pokimon, en el escritorio.
+2. Espera al mensaje Done del servidor. La primera descarga puede tardar.
+3. Abre COBBLEVERSE en Modrinth > Multijugador > Pokimon - partida compartida.
+   Si no aparece: Conexion directa > localhost:25565.
+
+AL TERMINAR
+Escribe stop en la consola del servidor y pulsa Intro.
+Deja la ventana abierta hasta LISTO. Entonces ya puede abrirlo el otro PC.
+Cerrar solo Minecraft no apaga el servidor ni sube la partida.
+
+SI SE CORTA INTERNET O CIERRAS LA VENTANA
+Tus avances quedan en el PC. Vuelve a abrir Iniciar servidor Pokimon.
+Si solo falta la subida, tambien puedes usar Reintentar subida Pokimon.
+El otro PC no podra arrancar hasta terminar. La reserva no caduca sola.
+No borres las carpetas sync-state ni server para intentar solucionar un error.
+
+NO SE PUEDE ABRIR EL MISMO MUNDO EN DOS SERVIDORES A LA VEZ.
+Podeis jugar juntos entrando los dos en el mismo servidor anfitrion.
+Quien lo aloja usa localhost. Quien entra desde fuera necesita la IP del
+anfitrion y su puerto accesible. El router del segundo PC no se configura
+desde este instalador. La redireccion del primer PC no se traslada al segundo.
+
+GitHub guarda la partida; el PC elegido ejecuta Minecraft y debe estar encendido.
+El repositorio y las copias son publicos. No se suben contrasenas ni logs.
+Inventarios, Pokemon, cofres, dimensiones y datos de mods viajan con el mundo.
+Los mapas y puntos personales de Xaero siguen en tu propia instancia Modrinth.
+Cambiar de direccion puede hacer que Xaero muestre otro mapa; no borres el anterior.
+
+El mundo ocupa muchos GB. Deja al menos 65 GB libres para la primera descarga.
+Se conservan las dos ultimas copias completas locales, la partida anterior
+a la ultima descarga y la copia inicial del primer PC. Los temporales ya
+aplicados y las copias locales mas antiguas verificadas en GitHub se limpian.
+Las copias publicadas en GitHub no se eliminan automaticamente.

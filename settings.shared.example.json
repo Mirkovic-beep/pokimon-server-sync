@@ -1,0 +1,11 @@
+{
+  "enabled": false,
+  "mode": "shared-host",
+  "repository": "Mirkovic-beep/pokimon-server-sync",
+  "serverDirectory": "C:\\Users\\USUARIO\\Games\\Pokimon-Compartido\\server",
+  "stateDirectory": "C:\\Users\\USUARIO\\Games\\Pokimon-Compartido\\sync-state",
+  "ghPath": "C:\\Users\\USUARIO\\Games\\Pokimon-Compartido\\tools\\gh-2.102.0\\bin\\gh.exe",
+  "javaPath": "RUTA_A_JAVA_21_DE_MODRINTH",
+  "memoryGB": 6,
+  "deviceId": "EL_INSTALADOR_GENERA_UN_IDENTIFICADOR_UNICO"
+}
