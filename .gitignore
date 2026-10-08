@@ -1,0 +1,9 @@
+*.local.json
+.state/
+backups/
+downloads/
+*.zip
+*.part*
+*.dpapi
+.env*
+node_modules/

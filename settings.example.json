@@ -1,0 +1,8 @@
+{
+  "enabled": false,
+  "mode": "single-host-backup",
+  "repository": "USUARIO/pokimon-server-sync",
+  "serverDirectory": "C:\\Minecraft\\Pokimon\\server",
+  "stateDirectory": "C:\\Minecraft\\Pokimon\\sync-state",
+  "ghPath": "C:\\Program Files\\GitHub CLI\\gh.exe"
+}
