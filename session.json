@@ -1,13 +1,9 @@
 {
     "format":  "pokimon-shared",
     "schema":  1,
-    "snapshot":  "snapshot-20261015-233731-ecf96401",
-    "manifestSha256":  "fe07da190c9294adb38a4860f399b16108bfd9127d443050b2d7c688081a1e1b",
-    "generation":  4,
-    "owner":  {
-                  "deviceId":  "b442b5c08888400081a695084aa2bdae",
-                  "sessionId":  "c7f4a681da564f8fa3da7f3149b7631b",
-                  "startedUtc":  "2026-10-16T00:10:28.4134885Z"
-              },
-    "updatedUtc":  "2026-10-16T00:10:28.4145025Z"
+    "snapshot":  "snapshot-20261016-003131-bb51d0ba",
+    "manifestSha256":  "62cff3b53cc02e6b54bacf23ddd1b734be8a69b7e66bcefda8b03015aed4c76e",
+    "generation":  5,
+    "owner":  null,
+    "updatedUtc":  "2026-10-16T00:53:20.1046181Z"
 }
