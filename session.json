@@ -4,6 +4,10 @@
     "snapshot":  "snapshot-20261023-203814-c49428ec",
     "manifestSha256":  "4eb046396cb7283b671e867b8336cb27519a59cd9542e89ee889cd5baa0acbc0",
     "generation":  6,
-    "owner":  null,
-    "updatedUtc":  "2026-10-23T21:01:30.4774939Z"
+    "owner":  {
+                  "deviceId":  "452de5fa0d1145359e4f2cc6c7f9916a",
+                  "sessionId":  "266b72a4e144486cb39bab1ced7028fc",
+                  "startedUtc":  "2026-10-28T17:47:13.6679360Z"
+              },
+    "updatedUtc":  "2026-10-28T17:47:13.6679360Z"
 }
